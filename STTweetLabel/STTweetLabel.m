@@ -84,11 +84,24 @@
     BOOL removeWord = YES;
     int indexOrigin = 0;
 
+    NSString *wordArray;
+    NSString *nextWordArray;
+    
     // 2 loops : one calculation (for alignments...) ; one for printing
     for (int repeat = 0; repeat < 2; repeat++)
     {        
-        for (NSString *wordArray in words)
+        for (int index = 0; index < words.count; index++)
         {
+            wordArray = words[index];
+            if (index < words.count - 1) {
+                nextWordArray = words[index + 1];
+                NSString *withTheNextWord = [NSString stringWithFormat:@"%@ %@", wordArray, nextWordArray];
+                
+                sizeSpace = CGSizeMake([withTheNextWord sizeWithFont:self.font].width -
+                                       [wordArray sizeWithFont:self.font].width -
+                                       [nextWordArray sizeWithFont:self.font].width,
+                                       sizeSpace.height);
+            }
             NSString *word = @"";
             NSString *lastPrefix = @"";
             NSMutableString *alreadyPrintedWord = [[NSMutableString alloc] init];
