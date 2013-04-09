@@ -11,6 +11,8 @@
 @interface STTweetLabel () <UIGestureRecognizerDelegate>
 
 @property (nonatomic, strong) UITapGestureRecognizer *tapGestureRecognizer;
+@property (nonatomic) CGRect rectToUnderline;
+@property (nonatomic, strong) UIColor *colorToUseToUnderline;
 
 @end
 
@@ -32,6 +34,34 @@
         [self prepare];
     }
     return self;
+}
+
+- (void)drawRect:(CGRect)rect
+{
+    [super drawRect:rect];
+    
+    if (!CGRectEqualToRect(self.rectToUnderline, CGRectNull)) {
+        CGContextRef context = UIGraphicsGetCurrentContext();
+        CGContextSaveGState(context);
+        
+        CGContextBeginPath(context);
+        CGContextSetStrokeColorWithColor(context, self.colorToUseToUnderline.CGColor);
+        CGContextSetLineWidth(context, 1);
+        CGContextMoveToPoint(context, self.rectToUnderline.origin.x, self.rectToUnderline.origin.y + self.rectToUnderline.size.height - 1);
+        CGContextAddLineToPoint(context, self.rectToUnderline.origin.x + self.rectToUnderline.size.width, self.rectToUnderline.origin.y + self.rectToUnderline.size.height - 1);
+        CGContextStrokePath(context);
+        
+        CGContextRestoreGState(context);
+    }
+    
+    __weak STTweetLabel *safeSelf = self;
+    double delayInSeconds = 0.2;
+    dispatch_time_t popTime = dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delayInSeconds * NSEC_PER_SEC));
+    dispatch_after(popTime, dispatch_get_main_queue(), ^(void){
+        safeSelf.rectToUnderline = CGRectNull;
+        safeSelf.colorToUseToUnderline = nil;
+        [safeSelf setNeedsDisplay];
+    });
 }
 
 - (void)prepare
@@ -63,6 +93,8 @@
     self.tapGestureRecognizer = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(tapActivated:)];
     self.tapGestureRecognizer.delegate = self;
     [self addGestureRecognizer:self.tapGestureRecognizer];
+    
+    self.rectToUnderline = CGRectNull;
 }
 
 - (void)drawTextInRect:(CGRect)rect
@@ -474,6 +506,8 @@
 - (void)tapActivated:(UITapGestureRecognizer*)recognizer
 {
     CGPoint touchPoint = [recognizer locationInView:self];
+    __block SEL delegateSelector;
+    __block STLinkActionType actionType;
     
     if ([touchLocations count] == 0)
         return;
@@ -482,54 +516,50 @@
      {
          CGRect touchZone = [obj CGRectValue];
          
-         if (CGRectContainsPoint(touchZone, touchPoint))
-         {
+         if (CGRectContainsPoint(touchZone, touchPoint)){
              //A touchable word is found
+             *stop = YES;
              
-             NSString *url = [touchWords objectAtIndex:idx];
+             NSString *urlString = [touchWords objectAtIndex:idx];
 
-             if ([[touchWords objectAtIndex:idx] hasPrefix:@"@"])
-             {
+             if ([urlString hasPrefix:@"@"]){
                  //Twitter account clicked
-                 if ([_delegate respondsToSelector:@selector(twitterAccountClicked:)]) {
-                     [_delegate twitterAccountClicked:url];
-                 }
-                 
-                 if (_callbackBlock != NULL) {
-                     
-                     _callbackBlock(STLinkActionTypeAccount, url);
-                     
-                 }
-                 
-             }
-             else if ([[touchWords objectAtIndex:idx] hasPrefix:@"#"])
-             {
+                 delegateSelector = @selector(twitterAccountClicked:);
+                 actionType = STLinkActionTypeAccount;
+                 self.colorToUseToUnderline = self.colorLink;
+             }else if ([urlString hasPrefix:@"#"]){
                  //Twitter hashtag clicked
-                 if ([_delegate respondsToSelector:@selector(twitterHashtagClicked:)]) {
-                     [_delegate twitterHashtagClicked:url];
-                 }
-                 
-                 if (_callbackBlock != NULL) {
-                     
-                     _callbackBlock(STLinkActionTypeHashtag, url);
-                     
-                 }
-             }
-             else if ([[touchWords objectAtIndex:idx] hasPrefix:@"http"])
-             {
-                 
+                 delegateSelector = @selector(twitterHashtagClicked:);
+                 actionType = STLinkActionTypeHashtag;
+                 self.colorToUseToUnderline = self.colorHashtag;
+             }else if ([urlString hasPrefix:@"http"]){
                  //Twitter hashtag clicked
-                 if ([_delegate respondsToSelector:@selector(websiteClicked:)]) {
-                     [_delegate websiteClicked:url];
-                 }
-                 
-                 if (_callbackBlock != NULL) {
-                     
-                     _callbackBlock(STLinkActionTypeWebsite, url);
-                     
-                 }
-                 
+                 delegateSelector = @selector(websiteClicked:);
+                 actionType = STLinkActionTypeWebsite;
+                 self.colorToUseToUnderline = self.colorLink;
              }
+             
+             self.rectToUnderline = touchZone;
+             // Mark ourselves for a redraw, so that
+             // the underline under the touchZone can be drawn
+             [self setNeedsDisplay];
+             
+             // Perform the delegate and callback call with a slight delay
+             // so that the underline under the touchZone is more vivid
+             double delayInSeconds = 0.2;
+             dispatch_time_t popTime = dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delayInSeconds * NSEC_PER_SEC));
+             dispatch_after(popTime, dispatch_get_main_queue(), ^(void){
+                 if ([_delegate respondsToSelector:delegateSelector])
+                     // WARNING: Using a deprecated method of the delegate
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Warc-performSelector-leaks"
+#warning Using a deprecated method on _delegate
+                     [_delegate performSelector:delegateSelector withObject:urlString];
+#pragma clang diagnostic pop
+                 
+                 if (_callbackBlock != NULL)
+                     _callbackBlock(actionType, urlString);
+             });
          }
      }];
 }
