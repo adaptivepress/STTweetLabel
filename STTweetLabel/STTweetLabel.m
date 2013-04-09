@@ -8,37 +8,61 @@
 
 #import "STTweetLabel.h"
 
+@interface STTweetLabel () <UIGestureRecognizerDelegate>
+
+@property (nonatomic, strong) UITapGestureRecognizer *tapGestureRecognizer;
+
+@end
+
 @implementation STTweetLabel
 
 - (id)initWithFrame:(CGRect)frame
 {
     self = [super initWithFrame:frame];
     if (self) {
-        // Set the basic properties
-        [self setBackgroundColor:[UIColor clearColor]];
-        [self setClipsToBounds:NO];
-        [self setUserInteractionEnabled:YES];
-        [self setNumberOfLines:0];
-        [self setLineBreakMode:NSLineBreakByWordWrapping];
-        
-        // Init by default spaces and alignments
-        _wordSpace = 0.0;
-        _lineSpace = 0.0;
-        _verticalAlignment = STVerticalAlignmentTop;
-        _horizontalAlignment = STHorizontalAlignmentLeft;
-        
-        // Alloc and init the arrays which stock the touchable words and their location
-        touchLocations = [[NSMutableArray alloc] init];
-        touchWords = [[NSMutableArray alloc] init];
-        
-        // Alloc and init the array for lines' size
-        sizeLines = [[NSMutableArray alloc] init];
-        
-        // Init touchable words colors
-        _colorHashtag = [UIColor colorWithWhite:170.0/255.0 alpha:1.0];
-        _colorLink = [UIColor colorWithRed:129.0/255.0 green:171.0/255.0 blue:193.0/255.0 alpha:1.0];
+        [self prepare];
     }
     return self;
+}
+
+- (id)initWithCoder:(NSCoder *)aDecoder
+{
+    self = [super initWithCoder:aDecoder];
+    if (self) {
+        [self prepare];
+    }
+    return self;
+}
+
+- (void)prepare
+{
+    // Set the basic properties
+    [self setBackgroundColor:[UIColor clearColor]];
+    [self setClipsToBounds:NO];
+    [self setUserInteractionEnabled:YES];
+    [self setNumberOfLines:0];
+    [self setLineBreakMode:NSLineBreakByWordWrapping];
+    
+    // Init by default spaces and alignments
+    _wordSpace = 0.0;
+    _lineSpace = 0.0;
+    _verticalAlignment = STVerticalAlignmentTop;
+    _horizontalAlignment = STHorizontalAlignmentLeft;
+    
+    // Alloc and init the arrays which stock the touchable words and their location
+    touchLocations = [[NSMutableArray alloc] init];
+    touchWords = [[NSMutableArray alloc] init];
+    
+    // Alloc and init the array for lines' size
+    sizeLines = [[NSMutableArray alloc] init];
+    
+    // Init touchable words colors
+    _colorHashtag = [UIColor colorWithWhite:170.0/255.0 alpha:1.0];
+    _colorLink = [UIColor colorWithRed:129.0/255.0 green:171.0/255.0 blue:193.0/255.0 alpha:1.0];
+    
+    self.tapGestureRecognizer = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(tapActivated:)];
+    self.tapGestureRecognizer.delegate = self;
+    [self addGestureRecognizer:self.tapGestureRecognizer];
 }
 
 - (void)drawTextInRect:(CGRect)rect
@@ -447,15 +471,12 @@
     }
 }
 
-- (void)touchesEnded:(NSSet *)touches withEvent:(UIEvent *)event
+- (void)tapActivated:(UITapGestureRecognizer*)recognizer
 {
-    UITouch *touch = event.allTouches.anyObject;
-    CGPoint touchPoint = [touch locationInView:self];
+    CGPoint touchPoint = [recognizer locationInView:self];
     
     if ([touchLocations count] == 0)
-    {
-        [super touchesEnded:touches withEvent:event];
-    }
+        return;
     
     [touchLocations enumerateObjectsUsingBlock:^(id obj, NSUInteger idx, BOOL *stop)
      {
@@ -509,10 +530,6 @@
                  }
                  
              }
-         }
-         else
-         {
-             [super touchesEnded:touches withEvent:event];
          }
      }];
 }
