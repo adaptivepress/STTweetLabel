@@ -52,16 +52,16 @@
         CGContextStrokePath(context);
         
         CGContextRestoreGState(context);
+        
+        __weak STTweetLabel *safeSelf = self;
+        double delayInSeconds = 0.2;
+        dispatch_time_t popTime = dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delayInSeconds * NSEC_PER_SEC));
+        dispatch_after(popTime, dispatch_get_main_queue(), ^(void){
+            safeSelf.rectToUnderline = CGRectNull;
+            safeSelf.colorToUseToUnderline = nil;
+            [safeSelf setNeedsDisplay];
+        });
     }
-    
-    __weak STTweetLabel *safeSelf = self;
-    double delayInSeconds = 0.2;
-    dispatch_time_t popTime = dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delayInSeconds * NSEC_PER_SEC));
-    dispatch_after(popTime, dispatch_get_main_queue(), ^(void){
-        safeSelf.rectToUnderline = CGRectNull;
-        safeSelf.colorToUseToUnderline = nil;
-        [safeSelf setNeedsDisplay];
-    });
 }
 
 - (void)prepare
